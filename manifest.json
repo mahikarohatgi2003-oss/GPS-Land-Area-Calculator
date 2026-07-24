@@ -1,0 +1,14 @@
+{
+  "name": "Chainwalk — Land Area Calculator",
+  "short_name": "Chainwalk",
+  "description": "Walk a plot's boundary and calculate its area using your phone's GPS.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#16241B",
+  "theme_color": "#16241B",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

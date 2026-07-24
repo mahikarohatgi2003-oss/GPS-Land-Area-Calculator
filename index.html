@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#16241B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chainwalk">
+<title>Chainwalk — Land Area Calculator</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#16241B;
+    --bg-elev:#1E3327;
+    --bg-elev-2:#26402F;
+    --ink:#EDE6D3;
+    --muted:#8FA085;
+    --accent:#E0932E;
+    --accent-deep:#B06E1E;
+    --grid:rgba(237,230,211,0.07);
+    --danger:#C6553B;
+    --line:#3F5B3F;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    overflow-x:hidden;
+    background-image:
+      repeating-radial-gradient(circle at 20% 15%, var(--grid) 0, var(--grid) 1px, transparent 1px, transparent 34px),
+      repeating-radial-gradient(circle at 85% 80%, var(--grid) 0, var(--grid) 1px, transparent 1px, transparent 46px);
+  }
+
+  header{
+    padding:18px 20px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:baseline; gap:8px;}
+  .brand h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:22px;
+    letter-spacing:-0.02em;
+    margin:0;
+  }
+  .brand span{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:0.04em;
+  }
+  .gps-status{
+    display:flex; align-items:center; gap:6px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--muted);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s;}
+  .dot.live{background:#7FBF6E; box-shadow:0 0 8px #7FBF6E;}
+  .dot.searching{background:var(--accent); animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    padding:16px;
+    gap:14px;
+    max-width:520px;
+    width:100%;
+    margin:0 auto;
+  }
+
+  .plot-wrap{
+    position:relative;
+    background:var(--bg-elev);
+    border:1px solid var(--line);
+    border-radius:14px;
+    aspect-ratio:1/1;
+    overflow:hidden;
+  }
+  .plot-wrap svg{width:100%;height:100%;display:block;}
+  .empty-plot{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+    padding:30px;
+    pointer-events:none;
+  }
+
+  .readout{
+    background:var(--bg-elev);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .readout-main{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:34px;
+    font-weight:600;
+    line-height:1;
+    color:var(--accent);
+    letter-spacing:-0.01em;
+  }
+  .readout-main .unit{font-size:16px; color:var(--muted); margin-left:6px;}
+  .unit-chips{display:flex; gap:8px; flex-wrap:wrap;}
+  .chip{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    padding:6px 11px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .chip.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:var(--bg);
+    font-weight:600;
+  }
+
+  .add-btn{
+    width:100%;
+    padding:18px;
+    border-radius:14px;
+    border:none;
+    background:var(--accent);
+    color:var(--bg);
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:0.01em;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    transition:transform .1s, background .15s;
+  }
+  .add-btn:active{transform:scale(0.98); background:var(--accent-deep);}
+  .add-btn:disabled{background:var(--bg-elev-2); color:var(--muted); cursor:not-allowed;}
+
+  .toolbar{display:flex; gap:10px;}
+  .tool-btn{
+    flex:1;
+    padding:12px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:var(--bg-elev);
+    color:var(--muted);
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+  }
+  .tool-btn:active{background:var(--bg-elev-2);}
+  .tool-btn.warn{color:var(--danger); border-color:rgba(198,85,59,0.3);}
+
+  .waypoints{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .waypoints h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--muted);
+    margin:4px 0 2px;
+    font-weight:600;
+  }
+  .wp-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 12px;
+    background:var(--bg-elev);
+    border-radius:10px;
+    border:1px solid var(--line);
+  }
+  .wp-num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--bg);
+    background:var(--accent);
+    width:20px; height:20px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+    font-weight:600;
+  }
+  .wp-coords{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--ink);
+    flex:1;
+  }
+  .wp-acc{font-size:10px; color:var(--muted);}
+  .wp-del{
+    background:none; border:none; color:var(--muted);
+    font-size:16px; cursor:pointer; padding:2px 6px;
+  }
+
+  footer{
+    padding:14px 20px 26px;
+    text-align:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    color:var(--muted);
+    opacity:0.7;
+  }
+
+  .toast{
+    position:fixed;
+    bottom:20px; left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--bg-elev-2);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:12px 18px;
+    border-radius:10px;
+    font-size:13px;
+    opacity:0;
+    transition:all .25s;
+    pointer-events:none;
+    max-width:85%;
+    text-align:center;
+    z-index:100;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Chainwalk</h1>
+    <span>LAND AREA</span>
+  </div>
+  <div class="gps-status">
+    <span class="dot" id="gpsDot"></span>
+    <span id="gpsText">GPS off</span>
+  </div>
+</header>
+
+<main>
+  <div class="plot-wrap">
+    <svg id="plotSvg" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="empty-plot" id="emptyMsg">Tap "Drop point" while standing at each corner of the plot. Walk the boundary in order — the shape fills in as you go.</div>
+  </div>
+
+  <div class="readout">
+    <div>
+      <span class="readout-main" id="areaMain">0<span class="unit" id="areaUnit">m²</span></span>
+    </div>
+    <div class="unit-chips" id="unitChips">
+      <button class="chip active" data-unit="sqm">m²</button>
+      <button class="chip" data-unit="hectare">hectare</button>
+      <button class="chip" data-unit="acre">acre</button>
+      <button class="chip" data-unit="guntha">guntha</button>
+      <button class="chip" data-unit="bigha">bigha (UP)</button>
+    </div>
+  </div>
+
+  <button class="add-btn" id="addBtn">
+    <span>＋</span> Drop point
+  </button>
+
+  <div class="toolbar">
+    <button class="tool-btn" id="undoBtn">↶ Undo last</button>
+    <button class="tool-btn" id="exportBtn">⇩ Export GeoJSON</button>
+    <button class="tool-btn warn" id="resetBtn">Reset</button>
+  </div>
+
+  <div class="waypoints" id="wpSection" style="display:none;">
+    <h2>Waypoints</h2>
+    <div id="wpList"></div>
+  </div>
+</main>
+
+<footer>Uses your device GPS · Area is a planar approximation, best for plots under a few hectares · Works offline once installed</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- State ----------
+let points = JSON.parse(localStorage.getItem('chainwalk_points') || '[]');
+let currentUnit = localStorage.getItem('chainwalk_unit') || 'sqm';
+let watchId = null;
+let lastPosition = null;
+
+const els = {
+  addBtn: document.getElementById('addBtn'),
+  undoBtn: document.getElementById('undoBtn'),
+  resetBtn: document.getElementById('resetBtn'),
+  exportBtn: document.getElementById('exportBtn'),
+  gpsDot: document.getElementById('gpsDot'),
+  gpsText: document.getElementById('gpsText'),
+  svg: document.getElementById('plotSvg'),
+  emptyMsg: document.getElementById('emptyMsg'),
+  areaMain: document.getElementById('areaMain'),
+  areaUnit: document.getElementById('areaUnit'),
+  unitChips: document.getElementById('unitChips'),
+  wpSection: document.getElementById('wpSection'),
+  wpList: document.getElementById('wpList'),
+  toast: document.getElementById('toast'),
+};
+
+// ---------- Toast ----------
+function toast(msg, ms=2200){
+  els.toast.textContent = msg;
+  els.toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>els.toast.classList.remove('show'), ms);
+}
+
+// ---------- Geolocation ----------
+function startGPS(){
+  if(!('geolocation' in navigator)){
+    els.gpsText.textContent = 'No GPS support';
+    return;
+  }
+  els.gpsDot.className = 'dot searching';
+  els.gpsText.textContent = 'Locating…';
+  watchId = navigator.geolocation.watchPosition(pos=>{
+    lastPosition = pos;
+    els.gpsDot.className = 'dot live';
+    els.gpsText.textContent = `±${Math.round(pos.coords.accuracy)}m`;
+    els.addBtn.disabled = false;
+  }, err=>{
+    els.gpsDot.className = 'dot';
+    els.gpsText.textContent = err.code===1 ? 'Permission denied' : 'GPS unavailable';
+    els.addBtn.disabled = points.length===0 ? false : els.addBtn.disabled; // allow manual fallback via export etc.
+  }, { enableHighAccuracy:true, maximumAge:1000, timeout:15000 });
+}
+startGPS();
+
+// ---------- Geometry helpers ----------
+// Equirectangular projection to local meters, centered on plot centroid
+function toMeters(lat, lon, refLat, refLon){
+  const R = 6371000;
+  const x = (lon - refLon) * Math.PI/180 * R * Math.cos(refLat * Math.PI/180);
+  const y = (lat - refLat) * Math.PI/180 * R;
+  return {x, y};
+}
+
+function computeAreaSqM(pts){
+  if(pts.length < 3) return 0;
+  const refLat = pts.reduce((s,p)=>s+p.lat,0)/pts.length;
+  const refLon = pts.reduce((s,p)=>s+p.lon,0)/pts.length;
+  const proj = pts.map(p=>toMeters(p.lat, p.lon, refLat, refLon));
+  let area = 0;
+  for(let i=0;i<proj.length;i++){
+    const j = (i+1)%proj.length;
+    area += proj[i].x * proj[j].y - proj[j].x * proj[i].y;
+  }
+  return Math.abs(area/2);
+}
+
+const UNITS = {
+  sqm:    { label:'m²',        toBase: v=>v,            fmt: v=>v.toLocaleString(undefined,{maximumFractionDigits:1}) },
+  hectare:{ label:'hectare',   toBase: v=>v/10000,       fmt: v=>v.toFixed(3) },
+  acre:   { label:'acre',      toBase: v=>v/4046.8564224,fmt: v=>v.toFixed(3) },
+  guntha: { label:'guntha',    toBase: v=>v/101.17,      fmt: v=>v.toFixed(2) }, // 1 guntha = 101.17 sq m
+  bigha:  { label:'bigha (UP)',toBase: v=>v/2529.285,    fmt: v=>v.toFixed(3) }, // UP standard bigha ≈ 2529.29 sq m
+};
+
+// ---------- Rendering ----------
+function project2D(pts){
+  // simple local-meter projection for SVG display, fit to viewbox with padding
+  if(pts.length===0) return [];
+  const refLat = pts.reduce((s,p)=>s+p.lat,0)/pts.length;
+  const refLon = pts.reduce((s,p)=>s+p.lon,0)/pts.length;
+  const proj = pts.map(p=>toMeters(p.lat, p.lon, refLat, refLon));
+  const xs = proj.map(p=>p.x), ys = proj.map(p=>p.y);
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+  const minY=Math.min(...ys), maxY=Math.max(...ys);
+  const w = Math.max(maxX-minX, 1), h = Math.max(maxY-minY, 1);
+  const scale = 220 / Math.max(w,h);
+  return proj.map(p=>({
+    x: 150 + (p.x - (minX+maxX)/2) * scale,
+    y: 150 - (p.y - (minY+maxY)/2) * scale, // flip Y (north up)
+  }));
+}
+
+function render(){
+  els.svg.innerHTML = '';
+  els.emptyMsg.style.display = points.length===0 ? 'flex' : 'none';
+
+  if(points.length > 0){
+    const pts2d = project2D(points);
+    const ns = 'http://www.w3.org/2000/svg';
+
+    // grid backdrop
+    const grid = document.createElementNS(ns,'g');
+    for(let i=0;i<=6;i++){
+      const line = document.createElementNS(ns,'line');
+      line.setAttribute('x1', i*50); line.setAttribute('y1', 0);
+      line.setAttribute('x2', i*50); line.setAttribute('y2', 300);
+      line.setAttribute('stroke', 'rgba(237,230,211,0.05)');
+      grid.appendChild(line);
+      const line2 = document.createElementNS(ns,'line');
+      line2.setAttribute('x1', 0); line2.setAttribute('y1', i*50);
+      line2.setAttribute('x2', 300); line2.setAttribute('y2', i*50);
+      line2.setAttribute('stroke', 'rgba(237,230,211,0.05)');
+      grid.appendChild(line2);
+    }
+    els.svg.appendChild(grid);
+
+    // polygon fill (only if 3+ points)
+    if(pts2d.length >= 3){
+      const poly = document.createElementNS(ns,'polygon');
+      poly.setAttribute('points', pts2d.map(p=>`${p.x},${p.y}`).join(' '));
+      poly.setAttribute('fill', 'rgba(224,147,46,0.15)');
+      poly.setAttribute('stroke', '#E0932E');
+      poly.setAttribute('stroke-width', '2');
+      poly.setAttribute('stroke-dasharray', '5,4');
+      els.svg.appendChild(poly);
+    } else if(pts2d.length === 2){
+      const line = document.createElementNS(ns,'line');
+      line.setAttribute('x1', pts2d[0].x); line.setAttribute('y1', pts2d[0].y);
+      line.setAttribute('x2', pts2d[1].x); line.setAttribute('y2', pts2d[1].y);
+      line.setAttribute('stroke', '#E0932E');
+      line.setAttribute('stroke-width', '2');
+      line.setAttribute('stroke-dasharray', '5,4');
+      els.svg.appendChild(line);
+    }
+
+    // waypoint markers
+    pts2d.forEach((p, i)=>{
+      const circle = document.createElementNS(ns,'circle');
+      circle.setAttribute('cx', p.x); circle.setAttribute('cy', p.y);
+      circle.setAttribute('r', 7);
+      circle.setAttribute('fill', '#16241B');
+      circle.setAttribute('stroke', '#E0932E');
+      circle.setAttribute('stroke-width', '2');
+      els.svg.appendChild(circle);
+
+      const text = document.createElementNS(ns,'text');
+      text.setAttribute('x', p.x); text.setAttribute('y', p.y+3.5);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('font-size', '8');
+      text.setAttribute('font-family', 'IBM Plex Mono, monospace');
+      text.setAttribute('fill', '#EDE6D3');
+      text.textContent = i+1;
+      els.svg.appendChild(text);
+    });
+  }
+
+  // area readout
+  const areaSqM = computeAreaSqM(points);
+  const unit = UNITS[currentUnit];
+  els.areaMain.innerHTML = `${unit.fmt(unit.toBase(areaSqM))}<span class="unit">${unit.label}</span>`;
+
+  // waypoint list
+  els.wpSection.style.display = points.length ? 'flex' : 'none';
+  els.wpList.innerHTML = '';
+  points.forEach((p, i)=>{
+    const row = document.createElement('div');
+    row.className = 'wp-row';
+    row.innerHTML = `
+      <span class="wp-num">${i+1}</span>
+      <span class="wp-coords">${p.lat.toFixed(6)}, ${p.lon.toFixed(6)} <span class="wp-acc">±${Math.round(p.acc)}m</span></span>
+      <button class="wp-del" data-idx="${i}">✕</button>
+    `;
+    els.wpList.appendChild(row);
+  });
+
+  localStorage.setItem('chainwalk_points', JSON.stringify(points));
+}
+
+// ---------- Actions ----------
+els.addBtn.addEventListener('click', ()=>{
+  if(!lastPosition){ toast('Waiting for GPS fix…'); return; }
+  const { latitude, longitude, accuracy } = lastPosition.coords;
+  points.push({ lat: latitude, lon: longitude, acc: accuracy, t: Date.now() });
+  render();
+  if(navigator.vibrate) navigator.vibrate(30);
+});
+
+els.undoBtn.addEventListener('click', ()=>{
+  if(points.length===0) return;
+  points.pop();
+  render();
+});
+
+els.resetBtn.addEventListener('click', ()=>{
+  if(points.length===0) return;
+  if(confirm('Clear all points and start a new plot?')){
+    points = [];
+    render();
+  }
+});
+
+els.wpList.addEventListener('click', (e)=>{
+  if(e.target.classList.contains('wp-del')){
+    const idx = parseInt(e.target.dataset.idx);
+    points.splice(idx, 1);
+    render();
+  }
+});
+
+els.unitChips.addEventListener('click', (e)=>{
+  if(e.target.classList.contains('chip')){
+    currentUnit = e.target.dataset.unit;
+    localStorage.setItem('chainwalk_unit', currentUnit);
+    [...els.unitChips.children].forEach(c=>c.classList.toggle('active', c===e.target));
+    render();
+  }
+});
+
+els.exportBtn.addEventListener('click', ()=>{
+  if(points.length < 3){ toast('Add at least 3 points to export a shape'); return; }
+  const coords = points.map(p=>[p.lon, p.lat]);
+  coords.push(coords[0]); // close ring
+  const geojson = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: {
+        area_sqm: computeAreaSqM(points),
+        recorded: new Date().toISOString(),
+      },
+      geometry: { type: 'Polygon', coordinates: [coords] }
+    }]
+  };
+  const blob = new Blob([JSON.stringify(geojson, null, 2)], {type:'application/geo+json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `chainwalk-plot-${Date.now()}.geojson`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// set active chip on load
+[...els.unitChips.children].forEach(c=>c.classList.toggle('active', c.dataset.unit===currentUnit));
+render();
+
+// ---------- Service worker ----------
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
